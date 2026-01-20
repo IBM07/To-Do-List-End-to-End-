@@ -1,0 +1,160 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # MySQL 8.0 Database
+  # ===========================================
+  mysql:
+    image: mysql:8.0
+    container_name: auratask_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-auratask_root_secret}
+      MYSQL_DATABASE: ${DB_NAME:-auratask}
+      MYSQL_USER: ${DB_USER:-auratask_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-auratask_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - auratask_network
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-auratask_root_secret}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: --default-authentication-plugin=mysql_native_password
+
+  # ===========================================
+  # Redis (Cache & Celery Broker)
+  # ===========================================
+  redis:
+    image: redis:alpine
+    container_name: auratask_redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-auratask_redis_secret}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - auratask_network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-auratask_redis_secret}", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Backend API (FastAPI + Uvicorn)
+  # ===========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: auratask_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME:-auratask}
+      - DB_USER=${DB_USER:-auratask_user}
+      - DB_PASSWORD=${DB_PASSWORD:-auratask_password}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-auratask_redis_secret}
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-in-production}
+      - ENVIRONMENT=production
+      - DEBUG=false
+    networks:
+      - auratask_network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  # ===========================================
+  # Celery Worker (Notification Processing)
+  # ===========================================
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: auratask_celery_worker
+    restart: unless-stopped
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME:-auratask}
+      - DB_USER=${DB_USER:-auratask_user}
+      - DB_PASSWORD=${DB_PASSWORD:-auratask_password}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-auratask_redis_secret}
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-in-production}
+    networks:
+      - auratask_network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "celery", "-A", "app.workers.celery_app", "inspect", "ping", "-d", "celery@$$HOSTNAME" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================
+  # Celery Beat Scheduler (Periodic Tasks)
+  # ===========================================
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: auratask_celery_beat
+    restart: unless-stopped
+    command: celery -A app.workers.celery_app beat --loglevel=info
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME:-auratask}
+      - DB_USER=${DB_USER:-auratask_user}
+      - DB_PASSWORD=${DB_PASSWORD:-auratask_password}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-auratask_redis_secret}
+    networks:
+      - auratask_network
+    depends_on:
+      - redis
+      - celery_worker
+
+# ===========================================
+# Volumes (Persistent Storage)
+# ===========================================
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ===========================================
+# Networks
+# ===========================================
+networks:
+  auratask_network:
+    driver: bridge

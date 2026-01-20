@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AuraTask - Intelligent Task Manager with Real-time Notifications">
+    <title>AuraTask - Urgency Dashboard</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- =========================================== -->
+    <!-- Authentication Section -->
+    <!-- =========================================== -->
+    <section id="auth-section" class="auth-container">
+        <div class="glass-card auth-card">
+            <!-- Logo -->
+            <div class="logo">
+                <span class="logo-icon">⚡</span>
+                <h1>AuraTask</h1>
+            </div>
+            <p class="tagline">Intelligent Task Management</p>
+            
+            <!-- Auth Tabs -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Login</button>
+                <button class="auth-tab" data-tab="register">Register</button>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" name="email" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" name="password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">
+                    <span>Sign In</span>
+                    <span class="btn-loader hidden"></span>
+                </button>
+            </form>
+            
+            <!-- Register Form -->
+            <form id="register-form" class="auth-form hidden">
+                <div class="form-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" name="email" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-password">Password</label>
+                    <input type="password" id="register-password" name="password" placeholder="Min 8 characters" minlength="8" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-timezone">Timezone</label>
+                    <select id="register-timezone" name="timezone">
+                        <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                        <option value="America/New_York">America/New_York (EST)</option>
+                        <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+                        <option value="Europe/London">Europe/London (GMT)</option>
+                        <option value="UTC">UTC</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">
+                    <span>Create Account</span>
+                    <span class="btn-loader hidden"></span>
+                </button>
+            </form>
+            
+            <!-- Error Message -->
+            <div id="auth-error" class="error-message hidden"></div>
+        </div>
+    </section>
+    
+    <!-- =========================================== -->
+    <!-- Main Dashboard Section -->
+    <!-- =========================================== -->
+    <section id="dashboard-section" class="dashboard-container hidden">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-left">
+                <span class="logo-icon">⚡</span>
+                <h1>AuraTask</h1>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <span id="user-email"></span>
+                    <span id="user-timezone" class="timezone-badge"></span>
+                </div>
+                <button id="logout-btn" class="btn btn-ghost">Logout</button>
+            </div>
+        </header>
+        
+        <!-- Smart Entry Bar -->
+        <div class="smart-entry-container">
+            <div class="glass-card smart-entry">
+                <div class="entry-icon">🧠</div>
+                <input 
+                    type="text" 
+                    id="smart-input" 
+                    placeholder="Try: 'Submit report #Urgent by Friday 5pm' or 'Call mom tomorrow at noon'"
+                    autocomplete="off"
+                >
+                <button id="add-task-btn" class="btn btn-primary">
+                    <span>Add Task</span>
+                </button>
+            </div>
+            <div class="smart-hint">
+                Use <code>#Urgent</code>, <code>#High</code>, <code>#Medium</code>, <code>#Low</code> for priority
+            </div>
+        </div>
+        
+        <!-- Connection Status -->
+        <div id="connection-status" class="connection-status">
+            <span class="status-dot"></span>
+            <span class="status-text">Connecting...</span>
+        </div>
+        
+        <!-- Task Columns -->
+        <main class="task-columns">
+            <!-- Overdue Column -->
+            <div class="task-column overdue-column">
+                <div class="column-header">
+                    <h2>🔥 Overdue</h2>
+                    <span class="task-count" id="overdue-count">0</span>
+                </div>
+                <div class="task-list" id="overdue-tasks"></div>
+            </div>
+            
+            <!-- Due Soon Column -->
+            <div class="task-column due-soon-column">
+                <div class="column-header">
+                    <h2>⚠️ Due Soon</h2>
+                    <span class="task-count" id="due-soon-count">0</span>
+                </div>
+                <div class="task-list" id="due-soon-tasks"></div>
+            </div>
+            
+            <!-- Upcoming Column -->
+            <div class="task-column upcoming-column">
+                <div class="column-header">
+                    <h2>📅 Upcoming</h2>
+                    <span class="task-count" id="upcoming-count">0</span>
+                </div>
+                <div class="task-list" id="upcoming-tasks"></div>
+            </div>
+        </main>
+        
+        <!-- Completed Tasks Toggle -->
+        <div class="completed-section">
+            <button id="toggle-completed" class="btn btn-ghost">
+                <span>Show Completed</span>
+                <span class="completed-count" id="completed-count">0</span>
+            </button>
+            <div id="completed-tasks" class="completed-list hidden"></div>
+        </div>
+    </section>
+    
+    <!-- =========================================== -->
+    <!-- Task Card Template -->
+    <!-- =========================================== -->
+    <template id="task-card-template">
+        <article class="task-card glass-card" data-task-id="">
+            <div class="task-header">
+                <span class="priority-badge"></span>
+                <span class="urgency-score"></span>
+            </div>
+            <h3 class="task-title"></h3>
+            <p class="task-description"></p>
+            <div class="task-meta">
+                <span class="due-date"></span>
+            </div>
+            <div class="task-actions">
+                <button class="btn btn-complete" title="Complete">✓</button>
+                <button class="btn btn-snooze" title="Snooze 1 hour">💤</button>
+                <button class="btn btn-delete" title="Delete">🗑️</button>
+            </div>
+        </article>
+    </template>
+    
+    <!-- =========================================== -->
+    <!-- Toast Notification -->
+    <!-- =========================================== -->
+    <div id="toast-container"></div>
+    
+    <!-- JavaScript Modules -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
