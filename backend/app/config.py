@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     # Discord (Optional)
     # ===========================================
     DISCORD_WEBHOOK_URL: Optional[str] = None
-    #
+    
     # ===========================================
     # Groq AI (for NLP parsing)
     # ===========================================
