@@ -411,7 +411,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  Built with ❤️ using <strong>FastAPI</strong>, <strong>SQLAlchemy</strong>, <strong>Celery</strong>, <strong>Groq AI</strong>, and <strong>Vanilla JS</strong>
+   <strong>FastAPI</strong>, <strong>SQLAlchemy</strong>, <strong>Celery</strong>, <strong>Groq AI</strong>, and <strong>Vanilla JS</strong>
 </p>
 
 <p align="center">
