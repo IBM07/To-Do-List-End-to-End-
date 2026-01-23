@@ -72,9 +72,13 @@ app = FastAPI(
 # ===========================================
 # CORS Middleware
 # ===========================================
+# Dynamic CORS based on environment
+cors_origins = settings.get_cors_origins
+print(f"🔒 CORS Origins: {cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure properly in production
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -100,20 +104,29 @@ async def health_check():
 async def detailed_health_check():
     """
     Detailed health check with component status.
+    
+    In development: Shows detailed config for debugging
+    In production: Shows minimal status only
     """
-    return {
+    response = {
         "status": "healthy",
         "components": {
             "api": "online",
             "database": "configured",
             "redis": "configured",
-        },
-        "config": {
+        }
+    }
+    
+    # Only show config details in development
+    if settings.ENVIRONMENT == "development":
+        response["config"] = {
             "db_host": settings.DB_HOST,
             "redis_host": settings.REDIS_HOST,
             "smtp_configured": settings.SMTP_USER is not None,
+            "debug_mode": settings.DEBUG,
         }
-    }
+    
+    return response
 
 
 # ===========================================

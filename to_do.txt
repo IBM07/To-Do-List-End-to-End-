@@ -1,0 +1,2 @@
+To Remember:-
+1)Always give the rollback plan whenever a feature is being implemented so that I can revert back to the previous version if something goes wrong.

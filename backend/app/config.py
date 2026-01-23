@@ -27,15 +27,15 @@ class Settings(BaseSettings):
     DB_HOST: str = "localhost"
     DB_PORT: int = 3306
     DB_NAME: str = "auratask"
-    DB_USER: str = "auratask_user"
-    DB_PASSWORD: str = "auratask_password"
+    DB_USER: str = "root"  # Default MySQL user
+    DB_PASSWORD: str  # REQUIRED - must be set in .env
     
     # ===========================================
     # Redis (Cache & Celery Broker)
     # ===========================================
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
-    REDIS_PASSWORD: str = "auratask_redis_secret"
+    REDIS_PASSWORD: str  # REQUIRED - must be set in .env
     
     @property
     def REDIS_URL(self) -> str:
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     # ===========================================
     # JWT Authentication
     # ===========================================
-    SECRET_KEY: str = "your-super-secret-key-change-in-production"
+    SECRET_KEY: str  # REQUIRED - must be set in .env (generate with secrets.token_urlsafe(32))
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
@@ -86,6 +86,52 @@ class Settings(BaseSettings):
     # ===========================================
     DEBUG: bool = True
     ENVIRONMENT: str = "development"
+    
+    # ===========================================
+    # CORS Settings
+    # ===========================================
+    # Comma-separated list of allowed origins for production
+    # Example: "https://auratask.com,https://www.auratask.com"
+    CORS_ORIGINS: str = "http://localhost:3000"  # Default for development
+    
+    @property
+    def get_cors_origins(self) -> list:
+        """Get CORS origins as a list based on environment."""
+        if self.ENVIRONMENT == "development":
+            return ["*"]  # Allow all in development
+        # In production, parse comma-separated origins
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+    
+    def model_post_init(self, __context) -> None:
+        """Called after model initialization - validate production settings."""
+        self.validate_production_settings()
+    
+    def validate_production_settings(self) -> None:
+        """
+        Validate critical settings when running in production.
+        
+        Raises ValueError if production requirements are not met.
+        """
+        if self.ENVIRONMENT != "production":
+            return  # Skip validation in development
+        
+        errors = []
+        
+        # Check SECRET_KEY is changed from default
+        if "change-in-production" in self.SECRET_KEY.lower():
+            errors.append("SECRET_KEY must be changed for production")
+        
+        # Require ENCRYPTION_KEY in production
+        if not self.ENCRYPTION_KEY:
+            errors.append("ENCRYPTION_KEY is required in production")
+        
+        # DEBUG must be False in production
+        if self.DEBUG:
+            errors.append("DEBUG must be False in production")
+        
+        if errors:
+            error_msg = "Production configuration errors:\n" + "\n".join(f"  - {err}" for err in errors)
+            raise ValueError(error_msg)
     
     # ===========================================
     # Database URLs (Computed Properties)
