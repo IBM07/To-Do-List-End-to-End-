@@ -833,3 +833,157 @@ body {
         opacity: 1;
     }
 }
+
+/* ===========================================
+   Edit Button
+   =========================================== */
+.btn-edit:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+/* ===========================================
+   Modal Overlay & Content
+   =========================================== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+    width: 100%;
+    max-width: 500px;
+    padding: var(--space-xl);
+    margin: var(--space-lg);
+    animation: slideUp 0.3s ease;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-xl);
+}
+
+.modal-header h2 {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+}
+
+.modal-close {
+    width: 36px;
+    height: 36px;
+    font-size: var(--font-size-xl);
+    padding: 0;
+}
+
+.modal-actions {
+    display: flex;
+    gap: var(--space-md);
+    margin-top: var(--space-xl);
+    justify-content: flex-end;
+}
+
+/* Form in Modal */
+.modal-content .form-group textarea {
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    color: var(--color-text);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    resize: vertical;
+}
+
+.modal-content .form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ===========================================
+   Settings Modal Styles
+   =========================================== */
+.settings-section {
+    margin-bottom: var(--space-xl);
+    padding-bottom: var(--space-lg);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.settings-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: var(--space-md);
+}
+
+.settings-section h3 {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    margin-bottom: var(--space-sm);
+    color: var(--color-text);
+}
+
+.settings-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--space-sm);
+}
+
+.settings-hint a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.settings-hint a:hover {
+    text-decoration: underline;
+}
+
+.settings-hint strong {
+    color: var(--color-text-secondary);
+}
+
+.settings-status {
+    display: inline-block;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius-sm);
+    margin-top: var(--space-sm);
+}
+
+.settings-status.success {
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--color-completed);
+}

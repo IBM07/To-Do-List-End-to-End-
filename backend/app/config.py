@@ -75,6 +75,13 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     
     # ===========================================
+    # Encryption (for sensitive user data)
+    # ===========================================
+    # Fernet key for encrypting telegram_chat_id, discord_webhook_url
+    # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    ENCRYPTION_KEY: Optional[str] = None
+    
+    # ===========================================
     # Application Settings
     # ===========================================
     DEBUG: bool = True

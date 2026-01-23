@@ -19,6 +19,7 @@ from app.models.notification import (
     NotificationStatus,
 )
 from app.models.user import User
+from app.utils.encryption import decrypt_field
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
@@ -64,14 +65,23 @@ def send_task_reminder(self, task_id: int, reminder_type: str):
             if not notification_settings:
                 return {"status": "skipped", "reason": "no_notification_settings"}
             
-            # Step 3: Build notification message
-            time_left = "1 hour" if reminder_type == "1_HOUR" else "24 hours"
-            subject = f"⏰ Task Due in {time_left}: {task.title[:50]}"
+            # Step 3: Build notification message based on reminder type
+            if reminder_type == "AT_DUE":
+                subject = f"🚨 Task Due NOW: {task.title[:50]}"
+                time_info = "Your task is due NOW!"
+            elif reminder_type == "1_HOUR":
+                subject = f"⏰ Task Due in 1 Hour: {task.title[:50]}"
+                time_info = "Your task is due in 1 hour."
+            else:  # 24_HOUR
+                subject = f"📅 Task Due in 24 Hours: {task.title[:50]}"
+                time_info = "Your task is due in 24 hours."
+            
             body = f"""
 Task Reminder from AuraTask
 
 📋 Task: {task.title}
-⏰ Due: {task.due_date.strftime("%b %d, %Y at %I:%M %p")} UTC
+⏰ {time_info}
+📆 Due: {task.due_date.strftime("%b %d, %Y at %I:%M %p")} UTC
 🔥 Priority: {task.priority.value}
 
 {task.description or 'No description provided.'}
@@ -100,8 +110,10 @@ Log in to AuraTask to manage your tasks.
             
             # Telegram notification
             if notification_settings.telegram_enabled and notification_settings.telegram_chat_id:
+                # Decrypt the chat ID before use
+                telegram_chat_id = decrypt_field(notification_settings.telegram_chat_id)
                 success, error = _send_telegram(
-                    notification_settings.telegram_chat_id,
+                    telegram_chat_id,
                     subject,
                     body
                 )
@@ -114,8 +126,10 @@ Log in to AuraTask to manage your tasks.
             
             # Discord notification
             if notification_settings.discord_enabled and notification_settings.discord_webhook_url:
+                # Decrypt the webhook URL before use
+                discord_webhook_url = decrypt_field(notification_settings.discord_webhook_url)
                 success, error = _send_discord(
-                    notification_settings.discord_webhook_url,
+                    discord_webhook_url,
                     subject,
                     body
                 )
@@ -176,41 +190,96 @@ def _send_email(to_email: str, subject: str, body: str) -> tuple[bool, Optional[
 
 
 def _send_telegram(chat_id: str, subject: str, body: str) -> tuple[bool, Optional[str]]:
-    """Send message via Telegram bot."""
+    """Send message via Telegram bot using direct HTTP API."""
     try:
         if not settings.TELEGRAM_BOT_TOKEN:
             return False, "Telegram bot not configured"
         
-        apobj = apprise.Apprise()
-        telegram_url = f"tgram://{settings.TELEGRAM_BOT_TOKEN}/{chat_id}"
-        apobj.add(telegram_url)
+        if not chat_id:
+            return False, "Chat ID is required"
         
-        message = f"*{subject}*\n\n{body}"
-        result = apobj.notify(
-            body=message,
-            notify_type=apprise.NotifyType.INFO,
-        )
+        import requests
         
-        return result, None if result else "Telegram send failed"
+        url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
+        
+        # Format message with HTML
+        message = f"""
+<b>⏰ {subject}</b>
+
+{body}
+
+---
+<i>AuraTask Reminder</i>
+        """.strip()
+        
+        payload = {
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "HTML",
+        }
+        
+        print(f"[TELEGRAM] Sending to chat_id: {chat_id}")
+        
+        response = requests.post(url, json=payload, timeout=10)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("ok"):
+                print(f"[TELEGRAM] ✅ Message sent successfully")
+                return True, None
+            else:
+                error = result.get("description", "Unknown error")
+                print(f"[TELEGRAM] ❌ API error: {error}")
+                return False, f"Telegram API error: {error}"
+        else:
+            error_msg = f"HTTP {response.status_code}: {response.text}"
+            print(f"[TELEGRAM] ❌ {error_msg}")
+            return False, error_msg
+            
+    except requests.Timeout:
+        return False, "Request timed out"
     except Exception as e:
         return False, str(e)
 
 
 def _send_discord(webhook_url: str, subject: str, body: str) -> tuple[bool, Optional[str]]:
-    """Send message via Discord webhook."""
+    """Send message via Discord webhook using direct HTTP API."""
     try:
-        apobj = apprise.Apprise()
-        # Convert webhook URL to Apprise format
-        # Discord webhook: https://discord.com/api/webhooks/{id}/{token}
-        apobj.add(webhook_url)
+        if not webhook_url:
+            return False, "Discord webhook URL is required"
         
-        result = apobj.notify(
-            title=subject,
-            body=body,
-            notify_type=apprise.NotifyType.INFO,
-        )
+        import requests
         
-        return result, None if result else "Discord send failed"
+        # Discord webhook expects JSON with content or embeds
+        # Using embed for better formatting
+        embed = {
+            "title": f"⏰ {subject}",
+            "description": body,
+            "color": 5814783,  # Purple color
+            "footer": {
+                "text": "AuraTask Reminder"
+            }
+        }
+        
+        payload = {
+            "embeds": [embed]
+        }
+        
+        print(f"[DISCORD] Sending to webhook...")
+        
+        response = requests.post(webhook_url, json=payload, timeout=10)
+        
+        # Discord returns 204 No Content on success
+        if response.status_code in [200, 204]:
+            print(f"[DISCORD] ✅ Message sent successfully")
+            return True, None
+        else:
+            error_msg = f"HTTP {response.status_code}: {response.text}"
+            print(f"[DISCORD] ❌ {error_msg}")
+            return False, error_msg
+            
+    except requests.Timeout:
+        return False, "Request timed out"
     except Exception as e:
         return False, str(e)
 

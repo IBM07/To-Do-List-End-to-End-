@@ -21,6 +21,7 @@ from app.schemas.notification import (
     NotificationTest,
 )
 from app.api.auth import get_current_user
+from app.utils.encryption import encrypt_field, decrypt_field
 
 
 router = APIRouter()
@@ -64,8 +65,14 @@ async def get_notification_settings(
     """
     Get current user's notification settings.
     """
-    settings = await get_or_create_settings(db, current_user.id)
-    return NotificationSettingsResponse.model_validate(settings)
+    notification_settings = await get_or_create_settings(db, current_user.id)
+    
+    # Decrypt sensitive fields before sending to client
+    response = NotificationSettingsResponse.model_validate(notification_settings)
+    response.telegram_chat_id = decrypt_field(notification_settings.telegram_chat_id)
+    response.discord_webhook_url = decrypt_field(notification_settings.discord_webhook_url)
+    
+    return response
 
 
 @router.put("/settings", response_model=NotificationSettingsResponse)
@@ -79,16 +86,28 @@ async def update_notification_settings(
     
     Only provided fields are updated.
     """
-    settings = await get_or_create_settings(db, current_user.id)
+    notification_settings = await get_or_create_settings(db, current_user.id)
     
     update_data = updates.model_dump(exclude_unset=True)
+    
+    # Encrypt sensitive fields before saving
+    if 'telegram_chat_id' in update_data and update_data['telegram_chat_id']:
+        update_data['telegram_chat_id'] = encrypt_field(update_data['telegram_chat_id'])
+    if 'discord_webhook_url' in update_data and update_data['discord_webhook_url']:
+        update_data['discord_webhook_url'] = encrypt_field(update_data['discord_webhook_url'])
+    
     for field, value in update_data.items():
-        setattr(settings, field, value)
+        setattr(notification_settings, field, value)
     
     await db.flush()
-    await db.refresh(settings)
+    await db.refresh(notification_settings)
     
-    return NotificationSettingsResponse.model_validate(settings)
+    # Decrypt for response
+    response = NotificationSettingsResponse.model_validate(notification_settings)
+    response.telegram_chat_id = decrypt_field(notification_settings.telegram_chat_id)
+    response.discord_webhook_url = decrypt_field(notification_settings.discord_webhook_url)
+    
+    return response
 
 
 # ===========================================
@@ -173,8 +192,10 @@ async def test_notification(
             # Use direct Telegram API service
             from app.services.telegram_service import send_telegram_message
             
+            # Decrypt chat ID before use
+            telegram_chat_id = decrypt_field(notification_settings.telegram_chat_id)
             success, error_msg = send_telegram_message(
-                chat_id=notification_settings.telegram_chat_id,
+                chat_id=telegram_chat_id,
                 message=f"<b>🎉 AuraTask Test</b>\n\n{message}"
             )
             
@@ -194,7 +215,9 @@ async def test_notification(
                     detail="Discord webhook URL not configured"
                 )
             
-            apobj.add(notification_settings.discord_webhook_url)
+            # Decrypt webhook URL before use
+            discord_webhook_url = decrypt_field(notification_settings.discord_webhook_url)
+            apobj.add(discord_webhook_url)
             success = apobj.notify(
                 title="AuraTask Test Notification",
                 body=message,

@@ -98,10 +98,25 @@ class TaskResponse(BaseModel):
     
     # User's timezone (set by API before response)
     _user_timezone: str = "UTC"
+    # Cached formatted dates (set when timezone is applied)
+    _due_date_local: Optional[str] = None
+    _due_date_human: Optional[str] = None
     
     def set_user_timezone(self, timezone: str) -> "TaskResponse":
-        """Set user timezone for computed fields."""
+        """Set user timezone and compute formatted dates."""
+        import pytz
         object.__setattr__(self, "_user_timezone", timezone)
+        
+        # Compute formatted dates NOW with the correct timezone
+        try:
+            tz = pytz.timezone(timezone)
+            local_dt = self.due_date.replace(tzinfo=pytz.UTC).astimezone(tz)
+            object.__setattr__(self, "_due_date_local", local_dt.isoformat())
+            object.__setattr__(self, "_due_date_human", local_dt.strftime("%b %d, %Y at %I:%M %p"))
+        except Exception:
+            object.__setattr__(self, "_due_date_local", self.due_date.isoformat())
+            object.__setattr__(self, "_due_date_human", self.due_date.strftime("%b %d, %Y at %I:%M %p"))
+        
         return self
     
     @computed_field
@@ -112,6 +127,9 @@ class TaskResponse(BaseModel):
         
         Returns ISO format string for frontend parsing.
         """
+        if self._due_date_local:
+            return self._due_date_local
+        # Fallback if set_user_timezone wasn't called
         try:
             tz = pytz.timezone(self._user_timezone)
             local_dt = self.due_date.replace(tzinfo=pytz.UTC).astimezone(tz)
@@ -127,6 +145,9 @@ class TaskResponse(BaseModel):
         
         Returns: "Jan 20, 2026 at 5:00 PM"
         """
+        if self._due_date_human:
+            return self._due_date_human
+        # Fallback if set_user_timezone wasn't called
         try:
             tz = pytz.timezone(self._user_timezone)
             local_dt = self.due_date.replace(tzinfo=pytz.UTC).astimezone(tz)

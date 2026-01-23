@@ -61,6 +61,25 @@ const DOM = {
 
     // Toast
     toastContainer: document.getElementById('toast-container'),
+
+    // Edit Modal
+    editModal: document.getElementById('edit-modal'),
+    editTaskForm: document.getElementById('edit-task-form'),
+    editTaskId: document.getElementById('edit-task-id'),
+    editTitle: document.getElementById('edit-title'),
+    editDescription: document.getElementById('edit-description'),
+    editPriority: document.getElementById('edit-priority'),
+    editDueDate: document.getElementById('edit-due-date'),
+    cancelEditBtn: document.getElementById('cancel-edit'),
+
+    // Settings Modal
+    settingsBtn: document.getElementById('settings-btn'),
+    settingsModal: document.getElementById('settings-modal'),
+    settingsForm: document.getElementById('settings-form'),
+    telegramChatId: document.getElementById('telegram-chat-id'),
+    discordWebhook: document.getElementById('discord-webhook'),
+    closeSettingsBtn: document.getElementById('close-settings'),
+    cancelSettingsBtn: document.getElementById('cancel-settings'),
 };
 
 // ===========================================
@@ -68,6 +87,7 @@ const DOM = {
 // ===========================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    detectAndSetTimezone();
     setupEventListeners();
     checkAuthState();
 });
@@ -87,6 +107,51 @@ async function checkAuthState() {
     } else {
         showAuth();
     }
+}
+
+/**
+ * Detect browser timezone and set it in the registration form.
+ */
+function detectAndSetTimezone() {
+    try {
+        // Get browser's timezone using Intl API
+        const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        console.log('[Timezone] Detected:', detectedTimezone);
+
+        // Store in AppState for use during registration
+        AppState.detectedTimezone = detectedTimezone;
+
+        // Try to set the dropdown value
+        const timezoneSelect = document.getElementById('register-timezone');
+        if (timezoneSelect) {
+            // Check if detected timezone is in the dropdown options
+            const optionExists = Array.from(timezoneSelect.options).some(
+                opt => opt.value === detectedTimezone
+            );
+
+            if (optionExists) {
+                timezoneSelect.value = detectedTimezone;
+            } else {
+                // Add the detected timezone as a new option and select it
+                const newOption = document.createElement('option');
+                newOption.value = detectedTimezone;
+                newOption.textContent = detectedTimezone;
+                newOption.selected = true;
+                timezoneSelect.insertBefore(newOption, timezoneSelect.firstChild);
+            }
+        }
+    } catch (error) {
+        console.warn('[Timezone] Detection failed:', error);
+        AppState.detectedTimezone = 'UTC';
+    }
+}
+
+/**
+ * Get the current timezone (detected or selected).
+ */
+function getCurrentTimezone() {
+    const timezoneSelect = document.getElementById('register-timezone');
+    return timezoneSelect?.value || AppState.detectedTimezone || 'UTC';
 }
 
 // ===========================================
@@ -114,6 +179,23 @@ function setupEventListeners() {
 
     // Completed toggle
     DOM.toggleCompletedBtn.addEventListener('click', toggleCompletedSection);
+
+    // Edit modal
+    DOM.editTaskForm.addEventListener('submit', handleSaveEdit);
+    DOM.cancelEditBtn.addEventListener('click', closeEditModal);
+    DOM.editModal.querySelector('.modal-close').addEventListener('click', closeEditModal);
+    DOM.editModal.addEventListener('click', (e) => {
+        if (e.target === DOM.editModal) closeEditModal();
+    });
+
+    // Settings modal
+    DOM.settingsBtn.addEventListener('click', openSettingsModal);
+    DOM.settingsForm.addEventListener('submit', handleSaveSettings);
+    DOM.closeSettingsBtn.addEventListener('click', closeSettingsModal);
+    DOM.cancelSettingsBtn.addEventListener('click', closeSettingsModal);
+    DOM.settingsModal.addEventListener('click', (e) => {
+        if (e.target === DOM.settingsModal) closeSettingsModal();
+    });
 
     // Listen for auth:logout event
     window.addEventListener('auth:logout', () => {
@@ -188,7 +270,9 @@ async function handleRegister(e) {
 
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
-    const timezone = document.getElementById('register-timezone').value;
+    // Use auto-detected timezone or dropdown selection
+    const timezone = getCurrentTimezone();
+    console.log('[Register] Using timezone:', timezone);
 
     setButtonLoading(e.target.querySelector('button'), true);
     hideAuthError();
@@ -364,11 +448,14 @@ function renderTasks() {
             return;
         }
 
-        const dueDate = new Date(task.due_date);
+        // Use due_date_local if available (user's timezone), fallback to due_date
+        const dueDateStr = task.due_date_local || task.due_date;
+        const dueDate = new Date(dueDateStr);
 
-        if (dueDate < now) {
+        // Compare using timestamps for accuracy
+        if (dueDate.getTime() < now.getTime()) {
             overdueTasks.push(task);
-        } else if (dueDate <= in24Hours) {
+        } else if (dueDate.getTime() <= in24Hours.getTime()) {
             dueSoonTasks.push(task);
         } else {
             upcomingTasks.push(task);
@@ -447,6 +534,11 @@ function createTaskCard(task, isOverdue = false) {
         handleDeleteTask(task.id);
     });
 
+    card.querySelector('.btn-edit').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEditModal(task);
+    });
+
     return card;
 }
 
@@ -455,6 +547,104 @@ function toggleCompletedSection() {
     DOM.completedTasksEl.classList.toggle('hidden', !AppState.showCompleted);
     DOM.toggleCompletedBtn.querySelector('span').textContent =
         AppState.showCompleted ? 'Hide Completed' : 'Show Completed';
+}
+
+// ===========================================
+// Edit Modal Functions
+// ===========================================
+
+function openEditModal(task) {
+    // Populate form with task data
+    DOM.editTaskId.value = task.id;
+    DOM.editTitle.value = task.title;
+    DOM.editDescription.value = task.description || '';
+    DOM.editPriority.value = task.priority;
+
+    // Format due date for datetime-local input
+    const dueDate = new Date(task.due_date);
+    const localDateTime = new Date(dueDate.getTime() - dueDate.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16);
+    DOM.editDueDate.value = localDateTime;
+
+    // Show modal
+    DOM.editModal.classList.remove('hidden');
+    DOM.editTitle.focus();
+}
+
+function closeEditModal() {
+    DOM.editModal.classList.add('hidden');
+    DOM.editTaskForm.reset();
+}
+
+async function handleSaveEdit(e) {
+    e.preventDefault();
+
+    const taskId = parseInt(DOM.editTaskId.value);
+    const updates = {
+        title: DOM.editTitle.value.trim(),
+        description: DOM.editDescription.value.trim() || null,
+        priority: DOM.editPriority.value,
+        due_date: new Date(DOM.editDueDate.value).toISOString(),
+    };
+
+    try {
+        const updatedTask = await api.updateTask(taskId, updates);
+        updateTaskInState(updatedTask);
+        renderTasks();
+        closeEditModal();
+        showToast('Task updated!', 'success');
+    } catch (error) {
+        showToast(error.message || 'Failed to update task', 'error');
+    }
+}
+
+// ===========================================
+// Settings Modal Functions
+// ===========================================
+
+async function openSettingsModal() {
+    try {
+        // Load current settings from API
+        const settings = await api.getNotificationSettings();
+
+        // Populate form
+        DOM.telegramChatId.value = settings.telegram_chat_id || '';
+        DOM.discordWebhook.value = settings.discord_webhook_url || '';
+
+        // Show modal
+        DOM.settingsModal.classList.remove('hidden');
+    } catch (error) {
+        showToast('Failed to load settings', 'error');
+    }
+}
+
+function closeSettingsModal() {
+    DOM.settingsModal.classList.add('hidden');
+    DOM.settingsForm.reset();
+}
+
+async function handleSaveSettings(e) {
+    e.preventDefault();
+
+    // Always enable all notification channels
+    const settings = {
+        email_enabled: true,
+        telegram_enabled: true,
+        discord_enabled: true,
+        telegram_chat_id: DOM.telegramChatId.value.trim() || null,
+        discord_webhook_url: DOM.discordWebhook.value.trim() || null,
+        notify_1hr_before: true,
+        notify_24hr_before: true,
+    };
+
+    try {
+        await api.updateNotificationSettings(settings);
+        closeSettingsModal();
+        showToast('Settings saved! 🎉', 'success');
+    } catch (error) {
+        showToast(error.message || 'Failed to save settings', 'error');
+    }
 }
 
 // ===========================================

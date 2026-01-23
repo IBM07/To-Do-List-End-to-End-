@@ -69,6 +69,17 @@ class NotificationScheduler:
                 )
                 scheduled_tasks.append(("1_HOUR", task_id))
         
+        # Schedule AT_DUE reminder (exactly when task is due)
+        # Always schedule this as it's the most important notification
+        if due_date > now:
+            task_id = get_predictable_task_id(task.id, "at_due")
+            send_task_reminder.apply_async(
+                args=[task.id, "AT_DUE"],
+                eta=due_date,
+                task_id=task_id,
+            )
+            scheduled_tasks.append(("AT_DUE", task_id))
+        
         return scheduled_tasks
     
     def revoke_task_notifications(self, task_id: int) -> None:
@@ -80,12 +91,14 @@ class NotificationScheduler:
         Args:
             task_id: Database ID of the task
         """
-        # Revoke both 1-hour and 24-hour reminders using predictable IDs
+        # Revoke all reminder types using predictable IDs
         celery_task_id_1hr = get_predictable_task_id(task_id, "1hr")
         celery_task_id_24hr = get_predictable_task_id(task_id, "24hr")
+        celery_task_id_at_due = get_predictable_task_id(task_id, "at_due")
         
         celery_app.control.revoke(celery_task_id_1hr, terminate=True)
         celery_app.control.revoke(celery_task_id_24hr, terminate=True)
+        celery_app.control.revoke(celery_task_id_at_due, terminate=True)
     
     def reschedule_task_notifications(
         self,

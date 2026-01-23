@@ -113,8 +113,8 @@ async def create_user(
         user_id=user.id,
         email_enabled=True,
         email_address=user_data.email,  # Default to registration email
-        telegram_enabled=False,
-        discord_enabled=False,
+        telegram_enabled=True,  # Auto-enable Telegram (user must set chat_id)
+        discord_enabled=True,
         notify_1hr_before=True,
         notify_24hr_before=True,
     )
