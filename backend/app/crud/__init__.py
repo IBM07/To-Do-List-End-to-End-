@@ -21,6 +21,12 @@ from app.crud.task import (
     delete_task,
     get_tasks_due_soon,
 )
+from app.crud.subtasks import (
+    create_subtask,
+    get_subtask_by_id,
+    toggle_subtask,
+    check_auto_complete_task,
+)
 
 __all__ = [
     # User
@@ -40,4 +46,9 @@ __all__ = [
     "snooze_task",
     "delete_task",
     "get_tasks_due_soon",
+    # Subtask
+    "create_subtask",
+    "get_subtask_by_id",
+    "toggle_subtask",
+    "check_auto_complete_task",
 ]

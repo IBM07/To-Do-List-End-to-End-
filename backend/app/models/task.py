@@ -14,6 +14,7 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.notification import NotificationLog
+    from app.models.subtask import Subtask
 
 
 class Priority(str, PyEnum):
@@ -102,6 +103,13 @@ class Task(Base):
         "NotificationLog",
         back_populates="task",
         cascade="all, delete-orphan"
+    )
+    
+    subtasks: Mapped[List["Subtask"]] = relationship(
+        "Subtask",
+        back_populates="task",
+        cascade="all, delete-orphan",
+        order_by="Subtask.order"
     )
     
     # Indexes for query optimization

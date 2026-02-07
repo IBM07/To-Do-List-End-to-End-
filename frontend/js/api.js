@@ -266,6 +266,31 @@ class ApiService {
     }
 
     // ===========================================
+    // Subtask Endpoints
+    // ===========================================
+
+    /**
+     * Create a new subtask
+     */
+    async createSubtask(taskId, title) {
+        return this.post(`/tasks/${taskId}/subtasks`, { title });
+    }
+
+    /**
+     * Toggle subtask completion
+     */
+    async toggleSubtask(subtaskId) {
+        return this.patch(`/subtasks/${subtaskId}/toggle`, {});
+    }
+
+    /**
+     * Delete a subtask
+     */
+    async deleteSubtask(subtaskId) {
+        return this.delete(`/subtasks/${subtaskId}`);
+    }
+
+    // ===========================================
     // Notification Endpoints
     // ===========================================
 

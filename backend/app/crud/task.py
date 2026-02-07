@@ -88,6 +88,14 @@ async def create_task(
     db.add(task)
     await db.flush()
     await db.refresh(task)
+    # Explicitly set empty list for subtasks to avoid lazy load error
+    # or refresh it if needed, but since it's new, it's empty.
+    # We can just set it to empty list to satisfy Pydantic
+    # However, SQLAlchemy models usually default relationships to empty list in memory if not loaded?
+    # No, we must be careful. Let's trying refreshing it.
+    # Actually, for a new object, we usually don't need to load relationships if they are empty?
+    # But let's be safe.
+    await db.refresh(task, attribute_names=["subtasks"])
     
     return task
 
@@ -108,7 +116,7 @@ async def get_task_by_id(
     Returns:
         Task object if found, None otherwise
     """
-    query = select(Task).where(Task.id == task_id)
+    query = select(Task).where(Task.id == task_id).options(selectinload(Task.subtasks))
     
     if user_id is not None:
         query = query.where(Task.user_id == user_id)
@@ -144,7 +152,7 @@ async def get_tasks_multi(
         Tuple of (list of tasks, total count)
     """
     # Base query
-    query = select(Task).where(Task.user_id == user_id)
+    query = select(Task).where(Task.user_id == user_id).options(selectinload(Task.subtasks))
     
     # Apply filters
     if status is not None:
@@ -201,7 +209,7 @@ async def update_task(
         setattr(task, field, value)
     
     await db.flush()
-    await db.refresh(task)
+    await db.refresh(task, attribute_names=["subtasks"])
     
     return task
 
@@ -227,7 +235,7 @@ async def update_task_status(
     task.status = new_status
     
     await db.flush()
-    await db.refresh(task)
+    await db.refresh(task, attribute_names=["subtasks"])
     
     # Determine if we need to cancel pending notifications
     should_cancel_notifications = (
@@ -270,7 +278,7 @@ async def snooze_task(
     """
     task.snoozed_until = snooze_until
     await db.flush()
-    await db.refresh(task)
+    await db.refresh(task, attribute_names=["subtasks"])
     return task
 
 

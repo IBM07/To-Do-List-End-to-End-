@@ -136,3 +136,6 @@ desktop.ini
 # Docker
 # ===========================================
 docker-compose.override.yml
+
+# Coding Practices
+to_do.txt

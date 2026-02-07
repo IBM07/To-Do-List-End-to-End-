@@ -25,6 +25,7 @@ from app.database import Base
 from app.models.user import User
 from app.models.task import Task
 from app.models.notification import NotificationSettings, NotificationLog
+from app.models.subtask import Subtask
 
 # this is the Alembic Config object
 config = context.config

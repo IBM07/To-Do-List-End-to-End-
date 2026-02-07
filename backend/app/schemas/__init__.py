@@ -22,6 +22,11 @@ from app.schemas.notification import (
     NotificationLogResponse,
     NotificationTest,
 )
+from app.schemas.subtask import (
+    SubtaskCreate,
+    SubtaskUpdate,
+    SubtaskResponse,
+)
 
 __all__ = [
     # User
@@ -40,4 +45,8 @@ __all__ = [
     "NotificationSettingsResponse",
     "NotificationLogResponse",
     "NotificationTest",
+    # Subtask
+    "SubtaskCreate",
+    "SubtaskUpdate",
+    "SubtaskResponse",
 ]

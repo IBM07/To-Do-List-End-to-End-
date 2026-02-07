@@ -539,6 +539,9 @@ function createTaskCard(task, isOverdue = false) {
         openEditModal(task);
     });
 
+    // Render Subtasks
+    renderSubtasksForCard(card, task);
+
     return card;
 }
 
@@ -644,6 +647,113 @@ async function handleSaveSettings(e) {
         showToast('Settings saved! 🎉', 'success');
     } catch (error) {
         showToast(error.message || 'Failed to save settings', 'error');
+    }
+}
+
+// ===========================================
+// Subtask Functions
+// ===========================================
+
+function renderSubtasksForCard(card, task) {
+    const container = card.querySelector('.subtask-container');
+    const list = card.querySelector('.subtask-list');
+    const input = card.querySelector('.add-subtask-input');
+    const addBtn = card.querySelector('.btn-add-subtask');
+
+    // Show container if we have subtasks or to allow adding
+    container.classList.remove('hidden');
+
+    // Clear list
+    list.innerHTML = '';
+
+    // Render each subtask
+    if (task.subtasks) {
+        // Sort: completed at bottom, then by order
+        // Note: Backend might already sort by order
+        const sortedSubtasks = [...task.subtasks].sort((a, b) => {
+            if (a.is_completed === b.is_completed) return a.order - b.order;
+            return a.is_completed ? 1 : -1;
+        });
+
+        sortedSubtasks.forEach(subtask => {
+            const item = document.createElement('div');
+            item.className = 'subtask-item';
+
+            // Checkbox
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'subtask-checkbox';
+            checkbox.checked = subtask.is_completed;
+            checkbox.addEventListener('change', () => handleToggleSubtask(subtask.id));
+
+            // Text
+            const text = document.createElement('span');
+            text.className = 'subtask-text';
+            text.textContent = subtask.title;
+
+            // Delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'subtask-delete';
+            deleteBtn.innerHTML = '&times;';
+            deleteBtn.title = 'Delete subtask';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleDeleteSubtask(subtask.id);
+            });
+
+            item.appendChild(checkbox);
+            item.appendChild(text);
+            item.appendChild(deleteBtn);
+            list.appendChild(item);
+        });
+    }
+
+    // Event Listeners for Adding
+    // Remove old listeners to prevent duplicates? 
+    // Easier to clone the node and replace or use clean event handling.
+    // Since we re-render the whole card, we don't need to worry about duplicates on the same element.
+
+    // BUT 'card' is created fresh in createTaskCard!
+    // So we can just add listener.
+
+    const handleAdd = () => {
+        const title = input.value.trim();
+        if (title) {
+            handleAddSubtask(task.id, title, input);
+        }
+    };
+
+    addBtn.onclick = handleAdd;
+    input.onkeypress = (e) => {
+        if (e.key === 'Enter') handleAdd();
+    };
+}
+
+async function handleAddSubtask(taskId, title, inputElement) {
+    try {
+        await api.createSubtask(taskId, title);
+        inputElement.value = '';
+        // UI update will happen via WebSocket broadcast 'task:updated'
+    } catch (error) {
+        showToast('Failed to add subtask', 'error');
+    }
+}
+
+async function handleToggleSubtask(subtaskId) {
+    try {
+        await api.toggleSubtask(subtaskId);
+        // UI update via WebSocket
+    } catch (error) {
+        showToast('Failed to toggle subtask', 'error');
+    }
+}
+
+async function handleDeleteSubtask(subtaskId) {
+    try {
+        await api.deleteSubtask(subtaskId);
+        // UI update via WebSocket
+    } catch (error) {
+        showToast('Failed to delete subtask', 'error');
     }
 }
 

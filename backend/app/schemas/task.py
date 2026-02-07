@@ -9,6 +9,7 @@ import pytz
 from pydantic import BaseModel, Field, ConfigDict, field_validator, computed_field
 
 from app.models.task import Priority, TaskStatus
+from app.schemas.subtask import SubtaskResponse
 
 
 class TaskBase(BaseModel):
@@ -95,6 +96,18 @@ class TaskResponse(BaseModel):
     urgency_score: float
     created_at: datetime
     updated_at: datetime
+    
+    # Subtasks
+    subtasks: list[SubtaskResponse] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def subtasks_progress(self) -> str:
+        """Returns '2/5' format for subtask completion."""
+        if not self.subtasks:
+            return ""
+        completed = sum(1 for s in self.subtasks if s.is_completed)
+        return f"{completed}/{len(self.subtasks)}"
     
     # User's timezone (set by API before response)
     _user_timezone: str = "UTC"

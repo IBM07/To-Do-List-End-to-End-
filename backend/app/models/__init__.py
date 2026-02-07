@@ -12,6 +12,7 @@ from app.models.notification import (
     NotificationChannel,
     NotificationStatus,
 )
+from app.models.subtask import Subtask
 
 # Export all models for easy imports
 __all__ = [
@@ -26,4 +27,6 @@ __all__ = [
     "NotificationLog",
     "NotificationChannel",
     "NotificationStatus",
+    # Subtask
+    "Subtask",
 ]

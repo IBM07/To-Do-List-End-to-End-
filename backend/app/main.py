@@ -163,3 +163,7 @@ app.include_router(
     websocket_router, 
     tags=["WebSocket"]
 )
+
+# Subtasks endpoints
+from app.api import subtasks
+app.include_router(subtasks.router, prefix="/api")

@@ -268,6 +268,17 @@ async def complete_task_endpoint(
     
     if should_cancel:
         revoke_notifications(task_id)
+
+    # Auto-complete all subtasks
+    from sqlalchemy import update
+    from app.models.subtask import Subtask
+    await db.execute(
+        update(Subtask)
+        .where(Subtask.task_id == task_id)
+        .values(is_completed=True)
+    )
+    await db.commit()
+    await db.refresh(updated_task, attribute_names=["subtasks"])
     
     response = task_to_response(updated_task, current_user.timezone)
     await broadcast_task_updated(current_user.id, response)
